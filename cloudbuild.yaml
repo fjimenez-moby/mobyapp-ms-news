@@ -1,0 +1,48 @@
+# Cloud Build configuration for News Service
+steps:
+  # Build Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/mobyapp-images/mobyapp-news:$BUILD_ID'
+      - '-t'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/mobyapp-images/mobyapp-news:latest'
+      - '.'
+
+  # Push image to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - '--all-tags'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/mobyapp-images/mobyapp-news'
+
+  # Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'mobyapp-news'
+      - '--image=us-central1-docker.pkg.dev/$PROJECT_ID/mobyapp-images/mobyapp-news:latest'
+      - '--region=us-central1'
+      - '--platform=managed'
+      - '--port=8084'
+      - '--memory=1Gi'
+      - '--cpu=1'
+      - '--min-instances=0'
+      - '--max-instances=10'
+      - '--allow-unauthenticated'
+      - '--set-env-vars=NEWS_PORT=8084,URL_EUREKA=${_URL_EUREKA},CONTENTFUL_IDSPACE=${_CONTENTFUL_IDSPACE},CONTENTFUL_CDA_ACCESSTOKEN=${_CONTENTFUL_CDA_ACCESSTOKEN},CONTENTFUL_CMA_ACCESSTOKEN=${_CONTENTFUL_CMA_ACCESSTOKEN}'
+
+substitutions:
+  _URL_EUREKA: 'set-in-trigger'
+  _CONTENTFUL_IDSPACE: 'set-in-trigger'
+  _CONTENTFUL_CDA_ACCESSTOKEN: 'set-in-trigger'
+  _CONTENTFUL_CMA_ACCESSTOKEN: 'set-in-trigger'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: 'E2_HIGHCPU_8'
+
+timeout: '600s'
